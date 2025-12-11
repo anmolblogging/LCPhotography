@@ -20,7 +20,7 @@ const Banner = () => {
       <div className="relative z-10 flex flex-col items-center justify-center h-full px-6 sm:px-8 lg:px-12 text-center max-w-4xl mx-auto">
         {/* Main Header */}
         <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-white mb-6 leading-tight">
-          Lucia Calderini Photography
+          Lucia Calderini
         </h1>
 
         {/* Subheader */}

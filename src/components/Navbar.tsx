@@ -177,11 +177,17 @@ const Navbar = () => {
                   >
                     Lucia Calderini
                   </h1>
+                  <p
+                  className={`text-sm font-light tracking-widest uppercase transition-colors duration-200 ${
+                    isScrolled ? "text-gray-600" : "text-white/80"
+                  } group-hover:text-gray-300`}
+                >
+                  Photography
+                </p>
                 </div>
               </Link>
             </div>
 
-            {/* <-- If you add a desktop nav, use handleLinkClick for anchors there too --> */}
           </div>
         </div>
       </nav>
@@ -226,6 +232,9 @@ const Navbar = () => {
                 <h2 className="text-xl font-bold text-white tracking-tight">
                   Lucia Calderini
                 </h2>
+                <p className="text-sm font-light text-white/70 tracking-widest uppercase">
+                  Photography
+                </p>
               </div>
             </div>
           </div>
