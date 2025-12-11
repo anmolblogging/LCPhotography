@@ -3,7 +3,7 @@ import Image from '../assets/About_image.jpg';
 
 const About = () => {
   return (
-    <div className="bg-gray-50 pb-20 mb-[-20px] md:mb-20" id="about">
+    <div className="bg-gray-50 pb-20 py-10 mb-[-20px] md:mb-20" id="about">
       {/* Hero Section */}
       <section className="pt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -73,7 +73,6 @@ const About = () => {
                   alt="Photographer portrait"
                   className="w-full h-64 sm:h-80 lg:h-96 xl:h-[500px] object-cover rounded-2xl shadow-lg"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-2xl"></div>
               </div>
             </div>
           </div>

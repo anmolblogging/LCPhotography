@@ -1,28 +1,25 @@
-
-import Navbar from './components/Navbar';
-import Carousel from './components/Banner';
-import AboutSection from './components/AboutSection';
-import PortfolioSection from './components/PortfolioSection';
-import Footer from './components/Footer';
-import Contact from './components/Contact';
-
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Navbar from "./components/Navbar";
+import HomePage from "./pages/HomePage";
+import Footer from "./components/Footer";
+import ContactPage from "./pages/ContactPage";
+import About from "./pages/AboutPage";
 
 function App() {
-
-
   return (
-    <div className="min-h-screen bg-gray-50 font-['Montserrat']">
-      <Navbar 
-      />
-      
-      <Carousel  />
-      
-      <AboutSection />
-      
-      <PortfolioSection  />
-      <Contact/>
-      <Footer />
-    </div>
+    <BrowserRouter>
+      <div className="min-h-screen bg-gray-50 font-['Montserrat']">
+        <Navbar />
+        <main>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<ContactPage />} />
+          </Routes>
+        </main>
+        <Footer />
+      </div>
+    </BrowserRouter>
   );
 }
 

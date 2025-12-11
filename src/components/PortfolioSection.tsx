@@ -1,8 +1,17 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 import ImageModal from "./ImageModal";
-import { Image } from "../types";
+// import { Image } from "../types";
 import Loader from './Loader'
+
+type ImageItem = {
+  id: number;
+  title?: string;
+  url: string;
+  category?: string;
+  // optional thumbnail field if you add it later to DB
+  thumbnail?: string;
+};
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -14,7 +23,7 @@ const Portfolio: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<string>("All");
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
-  const [images, setImages] = useState<Image[]>([]);
+  const [images, setImages] = useState<ImageItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(true);
@@ -22,7 +31,12 @@ const Portfolio: React.FC = () => {
 
   const observer = useRef<IntersectionObserver | null>(null);
 
-  /** Fetch images from Supabase */
+  // Cache: Map<filter, Map<pageNumber, ImageItem[]>>
+  const cacheRef = useRef<Map<string, Map<number, ImageItem[]>>>(new Map());
+  // In-flight tracker: Map<filter, Set<pageNumber>>
+  const inflightRef = useRef<Map<string, Set<number>>>(new Map());
+
+  /** Fetch images from Supabase (uses cache + inflight tracking) */
   const fetchImages = useCallback(
     async ({
       reset = false,
@@ -33,38 +47,88 @@ const Portfolio: React.FC = () => {
       filter?: string;
       pageNum?: number;
     }) => {
+      // If requesting a page that's already in cache, use it and avoid network call
+      const filterCache = cacheRef.current.get(filter);
+      if (filterCache && filterCache.has(pageNum)) {
+        // assemble pages 1..pageNum for display when reset or append single page when not reset
+        if (reset) {
+          const pages = Array.from(filterCache.keys())
+            .sort((a, b) => a - b)
+            .filter((p) => p <= pageNum)
+            .map((p) => filterCache.get(p) || [])
+            .flat();
+          setImages(pages);
+        } else {
+          setImages((prev) => [...prev, ...(filterCache.get(pageNum) || [])]);
+        }
+        // determine hasMore from cached page size
+        setHasMore((filterCache.get(pageNum) || []).length === PAGE_SIZE);
+        setLoading(false);
+        setIsFetchingMore(false);
+        return;
+      }
+
+      // Prevent duplicate requests for same filter+page
+      const inflightForFilter = inflightRef.current.get(filter) || new Set<number>();
+      if (inflightForFilter.has(pageNum)) {
+        return;
+      }
+      inflightForFilter.add(pageNum);
+      inflightRef.current.set(filter, inflightForFilter);
+
       if (reset) {
         setLoading(true);
       } else {
         setIsFetchingMore(true);
       }
 
-      let query = supabase
-        .from("images")
-        .select("id, title, url, category")
-        .order("id", { ascending: false })
-        .range((pageNum - 1) * PAGE_SIZE, pageNum * PAGE_SIZE - 1);
+      try {
+        let query = supabase
+          .from("images")
+          .select("id, title, url, category")
+          .order("id", { ascending: false })
+          .range((pageNum - 1) * PAGE_SIZE, pageNum * PAGE_SIZE - 1);
 
-      if (filter !== "All") {
-        query = query.eq("category", filter);
+        if (filter !== "All") {
+          query = query.eq("category", filter);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error("Error fetching images:", error);
+          return;
+        }
+
+        const fetched = (data || []) as ImageItem[];
+
+        // store in cache
+        const mapForFilter = cacheRef.current.get(filter) || new Map<number, ImageItem[]>();
+        mapForFilter.set(pageNum, fetched);
+        cacheRef.current.set(filter, mapForFilter);
+
+        if (reset) {
+          // assemble pages 1..pageNum from cache (in case pages already exist)
+          const pages = Array.from(mapForFilter.keys())
+            .sort((a, b) => a - b)
+            .filter((p) => p <= pageNum)
+            .map((p) => mapForFilter.get(p) || [])
+            .flat();
+          setImages(pages);
+        } else {
+          setImages((prev) => [...prev, ...fetched]);
+        }
+
+        setHasMore(fetched.length === PAGE_SIZE);
+      } finally {
+        // clear inflight flag and state flags
+        const s = inflightRef.current.get(filter);
+        s?.delete(pageNum);
+        if (s && s.size === 0) inflightRef.current.delete(filter);
+
+        if (reset) setLoading(false);
+        else setIsFetchingMore(false);
       }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error("Error fetching images:", error);
-        setLoading(false);
-        setIsFetchingMore(false);
-        return;
-      }
-
-      if (data) {
-        setImages((prev) => (reset ? (data as Image[]) : [...prev, ...(data as Image[])]));
-        setHasMore(data.length === PAGE_SIZE);
-      }
-
-      if (reset) setLoading(false);
-      else setIsFetchingMore(false);
     },
     [activeFilter]
   );
@@ -72,9 +136,24 @@ const Portfolio: React.FC = () => {
   /** Initial fetch & on filter change */
   useEffect(() => {
     setPage(1);
+
+    // if we have cached page 1 for this filter, use it synchronously
+    const filterCache = cacheRef.current.get(activeFilter);
+    if (filterCache && filterCache.has(1)) {
+      const pages = Array.from(filterCache.keys())
+        .sort((a, b) => a - b)
+        .map((p) => filterCache.get(p) || [])
+        .flat();
+      setImages(pages);
+      setLoading(false);
+      setHasMore((filterCache.get(1) || []).length === PAGE_SIZE);
+      return;
+    }
+
     setImages([]);
     fetchImages({ reset: true, filter: activeFilter, pageNum: 1 });
-  }, [activeFilter, fetchImages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFilter]);
 
   /** Fetch more on page change */
   useEffect(() => {
@@ -91,13 +170,17 @@ const Portfolio: React.FC = () => {
 
       observer.current = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting) {
-          setPage((prev) => prev + 1);
+          // avoid queuing multiple page increments while a page fetch is inflight
+          const inflightForFilter = inflightRef.current.get(activeFilter) || new Set<number>();
+          if (!inflightForFilter.has(page + 1)) {
+            setPage((prev) => prev + 1);
+          }
         }
-      });
+      }, { rootMargin: "300px" }); // prefetch earlier
 
       if (node) observer.current.observe(node);
     },
-    [loading, isFetchingMore, hasMore]
+    [loading, isFetchingMore, hasMore, activeFilter, page]
   );
 
   /** Open modal */
@@ -181,12 +264,17 @@ const Portfolio: React.FC = () => {
                   className="break-inside-avoid mb-6 group cursor-pointer"
                   onClick={() => handleImageClick(index)}
                 >
-                  <div className="relative overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:scale-[1.02]">
+                  <div className="relative overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:scale-[1.02] bg-gray-100">
+                    {/* Use thumbnail when available; fall back to original url.
+                        Keep lazy, low fetchPriority, and dimensions to reduce layout shift */}
                     <img
-                      src={image.url}
-                      alt={image.title}
+                      src={image.thumbnail ?? image.url}
+                      alt={image.title ?? "Portfolio image"}
                       className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-110"
                       loading="lazy"
+                      decoding="async"
+                      fetchPriority="low"
+                      // if you know common width/height you can add width/height attributes here
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   </div>
@@ -198,7 +286,9 @@ const Portfolio: React.FC = () => {
 
         {/* Spinner when fetching more */}
         {isFetchingMore && (
-          <Loader/>
+          <div className="py-8">
+            <Loader/>
+          </div>
         )}
 
         {/* No results */}

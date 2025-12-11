@@ -77,7 +77,7 @@ const Contact = memo(() => {
   const labelClasses = "block text-sm font-medium text-gray-700 mb-2";
 
   return (
-    <section className="py-16 lg:py-24 bg-gradient-to-br from-gray-50 to-white" id="contact">
+    <section className="py-24 bg-gray-50" id="contact">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-12 lg:mb-16">

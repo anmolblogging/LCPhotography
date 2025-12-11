@@ -31,9 +31,12 @@ const Banner = () => {
           the light captured in a still frame.
         </p>
 
-        {/* CTA Button */}
-        <a href="#portfolio">
-          <button className="inline-block bg-gray-400 border border-black/40 text-white px-8 sm:px-10 py-3 sm:py-4 rounded-xl text-sm sm:text-base font-semibold uppercase tracking-wide transition-colors duration-300 hover:bg-gray-700 hover:text-black focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-black">
+        {/* CTA Button - light themed */}
+        <a href="#portfolio" aria-label="View Portfolio">
+          <button
+            type="button"
+            className="inline-flex items-center justify-center gap-2 bg-white/95 text-gray-900 px-6 sm:px-8 py-3 sm:py-4 rounded-2xl text-sm sm:text-base font-semibold tracking-wide shadow-md border border-gray-200 hover:shadow-lg transform transition duration-150 hover:-translate-y-1 focus:outline-none focus:ring-4 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-white"
+          >
             View Portfolio
           </button>
         </a>
